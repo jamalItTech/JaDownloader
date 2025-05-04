@@ -1,19 +1,21 @@
-
-
-name: Build Android APK
+name: Build and Scan APK with Appknox
 
 on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
+    name: Build APK
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Setup Python
       uses: actions/setup-python@v4
@@ -27,12 +29,31 @@ jobs:
         pip3 install --upgrade pip
         pip3 install buildozer
 
-    - name: Build APK
+    - name: Build APK with Buildozer
       run: |
         buildozer android debug
 
-    - name: Upload APK
+    - name: Upload APK Artifact
       uses: actions/upload-artifact@v3
       with:
         name: JaFlex-APK
         path: bin/*.apk
+
+  security_scan:
+    name: Scan APK with Appknox
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download APK Artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: JaFlex-APK
+
+    - name: Upload APK to Appknox
+      env:
+        APPKNOX_API_TOKEN: ${{ secrets.APPKNOX_API_TOKEN }}
+      run: |
+        curl -X POST https://api.appknox.com/api/v2/analyses/ \
+        -H "Authorization: Token $APPKNOX_API_TOKEN" \
+        -F "file=@./JaFlex-APK/yourapp-debug.apk"
